@@ -1,0 +1,11 @@
+[
+	{
+		"name":          "Dominic",
+		"song":          "something.mp3",
+		"mac_addresses": [
+			"3c:d0:f8:67:43:4c",
+			"de:ad:be:ef:ca:fe"
+		],
+		"last_seen": "2012/12/01 01:00:00"
+	}
+]
