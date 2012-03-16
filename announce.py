@@ -9,10 +9,11 @@
 
 import sys
 import string
-import pprint
 import json
 import dateutil.parser
-import pygame
+import pyaudio
+import mad
+import numpy
 from datetime import datetime
 from scapy.all import *
 
@@ -22,14 +23,17 @@ class Announcer:
 	people = []
 	mac = dict()
 	name = dict()
+	audio = None
 
 	def __init__(self):
 		self.load_people()
 
 		print 'Loaded people:'
-		pprint.pprint([p['name'] for p in self.people])
+		for p in self.people:
+			print p['name'],
 
 		self.setup_audio()
+		self.announce(self.name['Dominic'])
 
 	def load_people(self):
 		try:
@@ -37,7 +41,6 @@ class Announcer:
 				self.people = json.load(f)
 		except:
 			print 'Could not load people database.'
-			pprint.pprint(sys.exc_info[1])
 
 		for person in self.people:
 			# Optional parameters
@@ -47,18 +50,13 @@ class Announcer:
 			if not 'duration' in person:
 				person['duration'] = 20
 
-			if not 'fade' in person:
-				person['fade'] = 10
-
 			self.name[person['name']] = person
 			for mac_address in person['mac_addresses']:
 				self.mac[mac_address] = person
 
 
 	def setup_audio(self):
-		pygame.mixer.init(44100, -16, 2, 2048)
-		pygame.mixer.music.set_volume(1.0)
-
+		self.audio = pyaudio.PyAudio()
 
 	def detect(self):
 		sniff(filter='arp or (udp and (port 67 or 68))', prn=self.check_packet, store=0)
@@ -95,25 +93,65 @@ class Announcer:
 				f.write(json.dumps(self.people, sort_keys=True, indent=4))
 		except:
 			print 'Could not persist last seen datetime.'
-			pprint.pprint(sys.exc_info[1])
 
 
 	def announce(self, person):
-		clock = pygame.time.Clock()
-
+		# Open MP3
 		try:
-			pygame.mixer.music.load(person['audio'])
-			print "Music file %s loaded!" % music_file
-		except pygame.error:
-			print "Could not open audio file (%s)" % (music_file, pygame.get_error())
+			music = mad.MadFile(person['audio'])
+			print "Audio file loaded: %s" % person['audio']
+		except:
+			print "Could not open audio file: %s" % person['audio']
+			raise
 
-		pygame.mixer.music.play()
+		# Open output
+		try:
+			stream = self.audio.open(output = True,
+					channels = 2,
+					format =
+					self.audio.get_format_from_width(pyaudio.paInt32),
+					rate = music.samplerate())
+		except:
+			print "Could not open output stream"
+			raise
 
-		#sleep(person['duration'])
+		# Play
+		try:
+			seek_msec = person['seek'] * 1000
+			fadeout_msec = (person['seek'] + person['duration']) * 1000
+			total_msec = (person['seek'] + person['duration'] + person['fade']) * 1000
 
-		while pygame.mixer.music.get_busy():
-			# check if playback has finished
-			clock.tick(1 / 10)
+			data = music.read()
+
+			# Seek
+			while data != None and music.current_time() <= seek_msec:
+				data = music.read() # Throw away
+
+			# Full volume
+			while data != None and music.current_time() <= fadeout_msec:
+				stream.write(data)
+				data = music.read()
+
+			# Fadeout
+			volume = 1.0 * (2 ** 32)
+			while data != None and music.current_time() <= total_msec:
+				print "Starting fadeout"
+
+				#	b = [(d * volume) for d in data]A
+				b = numpy.frombuffer(data, dtype = numpy.int16) * volume
+				stream.write(b)
+
+				data = music.read()
+
+
+		except:
+			print "Error while outputting audio"
+			raise
+
+		stream.close()
+		music.close()
+
+		print "Done announcing"
 
 announcer = Announcer();
 announcer.detect();

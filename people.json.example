@@ -1,14 +1,13 @@
 [
     {
-        "duration": 20, 
-        "fade": 10, 
-        "last_seen": "2011-12-31 01:59:45.522998", 
+        "name": "Dominic",
+        "audio": "something.mp3",
+        "seek": 30,
+        "duration": 20,
         "mac_addresses": [
-            "3c:d0:f8:67:43:4c", 
+            "3c:d0:f8:67:43:4c",
             "de:ad:be:ef:ca:fe"
-        ], 
-        "name": "Dominic", 
-        "seek": 30, 
-        "audio": "something.mp3"
+        ],
+        "last_seen": "2011-12-31 01:59:45.522998"
     }
 ]
