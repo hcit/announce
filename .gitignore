@@ -1,1 +1,3 @@
-.*.swp
+build
+people.json
+.*.sw[m-p]
